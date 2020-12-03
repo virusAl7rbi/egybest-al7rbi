@@ -7,7 +7,7 @@ import requests
 import re
 import os
 
-os.system('cls')
+os.system('clear')
 
 def get_all_episode(url):
     base_url = 'https://nero.egybest.site'
