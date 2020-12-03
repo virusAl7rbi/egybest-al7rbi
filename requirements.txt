@@ -1,4 +1,4 @@
 termcolor 
 pyshorteners
-BeautifulSoup
+BeautifulSoup4
 requests
