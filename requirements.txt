@@ -1,0 +1,4 @@
+termcolor 
+pyshorteners
+BeautifulSoup
+requests
