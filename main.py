@@ -1,19 +1,23 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 import requests
 import re
 
 
 class egybest:
     def __init__(self, query: str = '') -> None:
-        self.result = []
+        self.result_seasons, self.result_movies = [], []
         self.query = query.replace(' ', '%20')
         self.baseurl = 'https://nero.egybest.site'
+
+    def content(self, url, only: str = 'body', attrs: dict = {}):
+        only = SoupStrainer(only, attrs)
+        return BeautifulSoup(requests.get(url).text, 'lxml', parse_only=only)
 
     def get_all_episode(self, url) -> list:
         soup = BeautifulSoup(requests.get(url).text, 'lxml')
         e_urls = []
-        for e in soup.find_all('a', {'class': 'movie'}):
-            soup = BeautifulSoup(requests.get(e['href']).text, 'lxml')
+        for e in self.content(url, only='a', attrs={'class': 'movie'}).find_all('a', {'class': 'movie'}):
+            soup = self.content(url)
             if soup.find('iframe', {'class': 'auto-size'}):
                 iframe = soup.find('iframe', {'class': 'auto-size'})['src']
                 time_for_e = soup.find_all('td')[12].text
@@ -31,44 +35,32 @@ class egybest:
     def main(self) -> list:
         search_query = self.query
         search_url = f"https://nero.egybest.site/explore/?q={search_query}"
-        req = requests.get(search_url).text
-        soup = BeautifulSoup(req, 'lxml')
-        main_url = []
+        soup = self.content(search_url)
         for res in soup.find_all('a', {'class': 'movie'}):
             url = res['href'][:-15]
-            main_url.append(url)
-            
-            
-        for url in main_url:
-            soup = BeautifulSoup(requests.get(url).text, 'lxml')
+            soup = self.content(url)
             if url.split("/")[3] == "movie" and soup.find('iframe', {'class': 'auto-size'}):
-                soup = BeautifulSoup(requests.get(url).text, 'lxml')
+                soup = self.content(url)
                 data = {
                     "title": url.split("/")[4].replace('-', ' '),
                     "image": "https:" + soup.find('img')['src'],
-                    "type": url.split("/")[3],
                     "rate": soup.find('span', {'itemprop': 'ratingValue'}).text,
                     "time": soup.find_all('td')[10].text,
                     "url": self.base_url + soup.find('iframe', {'class': 'auto-size'})['src']
                 }
-                self.result.append(data)
-                
-                
+                self.result_movies.append(data)
+
             elif url.split("/")[3] == "series":
-                soup = BeautifulSoup(requests.get(url).text, 'lxml')
-                sessons = soup.find_all('div', {'class': 'contents movies_small'})
-                for i in sessons:
+                soup = self.content(url,'div', {'class': 'contents movies_small'})
+                for i in soup.find_all('div'):
                     urls = i.find_all('a', {'class': 'movie'})
                     for x in urls:
                         if re.search('/season/', str(x)):
-                            s_num = x['href'].split(
-                                '/')[4].split('-season-')[1].split('-')[0]
-                            self.result.append({
+                            s_num = re.search('-season-(.*)/', x['href']).group(1)
+                            self.result_seasons.append({
                                 "season": str(s_num),
-                                "type": url.split("/")[3],
                                 "episodes": self.get_all_episode(x['href']),
                                 "title": x.find('img')['alt'].replace('-', ' '),
                                 "url": x['href'],
                                 "image": "https:" + x.find('img')['src']
                             })
-        return
